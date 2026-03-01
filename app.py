@@ -1,13 +1,12 @@
 """
-app.py — Nifty 50 VaR / CVaR / ES Risk Dashboard
-The Mountain Path — World of Finance
-Prof. V. Ravichandran
+app.py — Nifty 50 VaR / CVaR / ES Risk Dashboard  v2
+The Mountain Path — World of Finance | Prof. V. Ravichandran
 
-Tabs:
-  1. Single Stock VaR
-  2. Portfolio VaR
-  3. Stress Testing
-  4. Methodology
+Redesigned to match Linear Regression app design framework:
+  • Centred title hero header with badge strip
+  • Styled tabs with gold active state
+  • Enhanced sidebar with section dividers
+  • Per-tab banners matching the new colour system
 """
 import streamlit as st
 import numpy as np
@@ -15,65 +14,63 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Nifty VaR / CVaR / ES Dashboard",
+    page_title="Nifty 50 VaR / CVaR / ES Dashboard",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 from styles     import inject_css
-from components import hero_header, footer, section_h, render_ib, hl, bdg, NO_SEL, FH, FB
+from components import (app_header, footer, section_h, render_ib, hl, bdg,
+                        NO_SEL, FH, FB, FM)
 from var_engine import NIFTY50, SECTOR_MAP, fetch_data, compute_returns
 
 inject_css()
 
-# ── Hero header ───────────────────────────────────────────────────────────────
-hero_header(
-    "Nifty 50 VaR / CVaR / ES Risk Dashboard",
-    "Live market risk analytics — Historical · Parametric · Monte Carlo · EWMA · GARCH(1,1) · Cornish-Fisher | "
-    "Single Stock & Portfolio | Stress Testing | Basel III / FRTB Reference",
-    "📊"
+# ── Hero Header (LR app style) ────────────────────────────────────────────────
+app_header(
+    title    = "Nifty 50 VaR / CVaR / ES Risk Dashboard",
+    subtitle = "Live market risk analytics — Historical · Parametric · Monte Carlo · EWMA · GARCH(1,1) · Cornish-Fisher"
+               " | Single Stock & Portfolio | Stress Testing | Basel III / FRTB Reference",
+    badges   = [
+        ("7 VaR Methods",       "blue"),
+        ("CVaR / ES",           "gold"),
+        ("Monte Carlo",         "purple"),
+        ("GARCH(1,1)",          "red"),
+        ("Stress Testing",      "amber"),
+        ("Basel III / FRTB",    "teal"),
+    ]
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown(
-        f'<div style="background:#003366;border-radius:10px;padding:16px;'
-        f'margin-bottom:12px;text-align:center;user-select:none">'
+    # Brand block
+    st.html(
+        f'<div style="background:linear-gradient(135deg,#003366,#004d80);border-radius:10px;'
+        f'padding:16px;margin-bottom:16px;text-align:center;{NO_SEL}">'
         f'<div style="font-family:{FH};color:#FFD700;-webkit-text-fill-color:#FFD700;'
         f'font-size:1.15rem;font-weight:700">⚙️ Control Panel</div>'
-        f'<div style="color:#8892b0;-webkit-text-fill-color:#8892b0;'
+        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
         f'font-family:{FB};font-size:.78rem;margin-top:4px">'
-        f'The Mountain Path — World of Finance</div>'
-        f'</div>',
-        unsafe_allow_html=True
+        f'The Mountain Path — World of Finance</div></div>'
     )
 
     # ── Data Parameters ───────────────────────────────────────────
-    st.markdown(
-        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
-        f'font-family:{FB};font-weight:700;font-size:.85rem;margin-bottom:4px">'
-        f'📦 Data Parameters</div>',
-        unsafe_allow_html=True
-    )
-    period = st.selectbox("Data Period", ["1y","2y","3y","5y","6mo","3mo"],
-                          help="Historical price data window for VaR estimation")
+    st.html(f'<div style="color:#FFD700;-webkit-text-fill-color:#FFD700;font-family:{FB};'
+            f'font-weight:700;font-size:.85rem;margin-bottom:6px">📦 Data Parameters</div>')
+    period     = st.selectbox("Data Period", ["1y","2y","3y","5y","6mo","3mo"],
+                              help="Historical price window for VaR estimation")
     ret_method = st.radio("Return Method", ["Log Returns","Simple Returns"],
                           help="Log returns preferred for VaR analysis")
 
-    st.markdown("<hr style='border-color:#1e3a5f;margin:10px 0'>", unsafe_allow_html=True)
+    st.html("<hr style='border-color:#1e3a5f;margin:12px 0'>")
 
     # ── VaR Parameters ────────────────────────────────────────────
-    st.markdown(
-        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
-        f'font-family:{FB};font-weight:700;font-size:.85rem;margin-bottom:4px">'
-        f'📐 VaR Parameters</div>',
-        unsafe_allow_html=True
-    )
+    st.html(f'<div style="color:#FFD700;-webkit-text-fill-color:#FFD700;font-family:{FB};'
+            f'font-weight:700;font-size:.85rem;margin-bottom:6px">📐 VaR Parameters</div>')
     conf_level = st.select_slider(
         "Confidence Level",
         options=[0.90, 0.95, 0.975, 0.99, 0.999],
@@ -86,60 +83,40 @@ with st.sidebar:
                                 options=[10000, 25000, 50000, 100000],
                                 value=50000,
                                 format_func=lambda x: f"{x:,}")
-    invest  = st.number_input("Portfolio Value (₹)", value=1000000, step=100000,
-                               min_value=10000, format="%d",
+    invest  = st.number_input("Portfolio Value (₹)", value=1_000_000, step=100_000,
+                               min_value=10_000, format="%d",
                                help="Investment amount for ₹ loss calculation")
 
-    st.markdown("<hr style='border-color:#1e3a5f;margin:10px 0'>", unsafe_allow_html=True)
+    st.html("<hr style='border-color:#1e3a5f;margin:12px 0'>")
 
     # ── Stock Selection ───────────────────────────────────────────
-    st.markdown(
-        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
-        f'font-family:{FB};font-weight:700;font-size:.85rem;margin-bottom:4px">'
-        f'🏦 Nifty 50 Stocks</div>',
-        unsafe_allow_html=True
-    )
+    st.html(f'<div style="color:#FFD700;-webkit-text-fill-color:#FFD700;font-family:{FB};'
+            f'font-weight:700;font-size:.85rem;margin-bottom:6px">🏦 Nifty 50 Stocks</div>')
+    all_sectors  = sorted(set(SECTOR_MAP.values()))
+    sel_sectors  = st.multiselect("Filter by Sector", all_sectors, default=all_sectors[:3])
+    filtered     = [k for k, v in SECTOR_MAP.items() if v in sel_sectors] if sel_sectors else list(NIFTY50.keys())
 
-    # Sector filter
-    all_sectors = sorted(set(SECTOR_MAP.values()))
-    sel_sectors = st.multiselect("Filter by Sector", all_sectors,
-                                  default=all_sectors[:3],
-                                  help="Filter stock list by sector")
-    filtered_tickers = [k for k, v in SECTOR_MAP.items() if v in sel_sectors] if sel_sectors else list(NIFTY50.keys())
-
-    # Single stock (for Tab 1)
     single_ticker = st.selectbox(
         "Single Stock Analysis",
-        filtered_tickers,
-        format_func=lambda x: f"{x} ({SECTOR_MAP.get(x,'—')})",
-        help="Select stock for Tab 1"
+        filtered,
+        format_func=lambda x: f"{x} ({SECTOR_MAP.get(x,'—')})"
     )
 
-    # Portfolio stocks (for Tab 2)
-    st.markdown(
-        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
-        f'font-family:{FB};font-weight:700;font-size:.82rem;margin:8px 0 4px">'
-        f'📂 Portfolio Stocks (Tab 2)</div>',
-        unsafe_allow_html=True
-    )
-    default_port = filtered_tickers[:min(5, len(filtered_tickers))]
+    st.html(f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;font-family:{FB};'
+            f'font-weight:700;font-size:.82rem;margin:10px 0 4px">📂 Portfolio Stocks</div>')
+    default_port     = filtered[:min(5, len(filtered))]
     portfolio_tickers = st.multiselect(
         "Select Stocks",
         list(NIFTY50.keys()),
         default=default_port,
-        format_func=lambda x: f"{x} ({SECTOR_MAP.get(x,'—')})",
-        help="Select 2–12 stocks for portfolio VaR"
+        format_func=lambda x: f"{x} ({SECTOR_MAP.get(x,'—')})"
     )
 
-    # ── Portfolio Weights ─────────────────────────────────────────
+    # Weights
     weights = []
     if portfolio_tickers:
-        st.markdown(
-            f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;'
-            f'font-family:{FB};font-weight:700;font-size:.82rem;margin:8px 0 4px">'
-            f'⚖️ Portfolio Weights (%)</div>',
-            unsafe_allow_html=True
-        )
+        st.html(f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;font-family:{FB};'
+                f'font-weight:700;font-size:.82rem;margin:10px 0 4px">⚖️ Weights (%)</div>')
         equal_w = round(100 / len(portfolio_tickers), 1)
         for ticker in portfolio_tickers:
             w = st.number_input(
@@ -149,79 +126,86 @@ with st.sidebar:
             weights.append(w)
         total_w = sum(weights)
         w_color = "#28a745" if abs(total_w - 100) < 0.1 else "#dc3545"
-        st.markdown(
+        st.html(
             f'<div style="color:{w_color};-webkit-text-fill-color:{w_color};'
             f'font-family:{FB};font-size:.82rem;font-weight:700;margin-top:6px">'
-            f'Total: {total_w:.1f}% (auto-normalised)</div>',
-            unsafe_allow_html=True
+            f'Total: {total_w:.1f}%  (auto-normalised)</div>'
         )
 
-    st.markdown("<hr style='border-color:#1e3a5f;margin:10px 0'>", unsafe_allow_html=True)
-
-    # ── Fetch button ──────────────────────────────────────────────
+    st.html("<hr style='border-color:#1e3a5f;margin:12px 0'>")
     fetch_btn = st.button("🔄 Fetch Live Data", use_container_width=True)
-
-    st.markdown(
-        f'<div style="color:#8892b0;-webkit-text-fill-color:#8892b0;'
-        f'font-family:{FB};font-size:.74rem;margin-top:8px;text-align:center">'
-        f'Data: NSE via Yahoo Finance | Live prices delayed ~15min</div>',
-        unsafe_allow_html=True
+    st.html(
+        f'<div style="color:#8892b0;-webkit-text-fill-color:#8892b0;font-family:{FB};'
+        f'font-size:.74rem;margin-top:8px;text-align:center">'
+        f'NSE via Yahoo Finance · Prices delayed ~15 min</div>'
     )
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DATA LOADING
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=900, show_spinner=False)  # cache 15 min
+@st.cache_data(ttl=900, show_spinner=False)
 def load_prices(tickers_list: tuple, period: str) -> pd.DataFrame:
-    """Cache-aware data loader."""
     ticker_symbols = [NIFTY50[t] for t in tickers_list if t in NIFTY50]
     return fetch_data(ticker_symbols, period)
 
-
 def remap_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Remap .NS suffixed columns back to short ticker names."""
     reverse = {v: k for k, v in NIFTY50.items()}
     df.columns = [reverse.get(c, c) for c in df.columns]
     return df
 
-
-# Determine all tickers needed
-all_tickers_needed = list(set(
-    [single_ticker] + (portfolio_tickers if portfolio_tickers else [])
-))
-
+all_tickers_needed = list(set([single_ticker] + (portfolio_tickers or [])))
 prices_df = None
+
 if fetch_btn or "prices_df" in st.session_state:
     if fetch_btn:
-        with st.spinner("⏳ Fetching live Nifty 50 data from NSE via Yahoo Finance..."):
+        with st.spinner("⏳ Fetching live Nifty 50 data from NSE via Yahoo Finance…"):
             try:
-                tickers_key = tuple(sorted(all_tickers_needed))
-                raw = load_prices(tickers_key, period)
+                key = tuple(sorted(all_tickers_needed))
+                raw = load_prices(key, period)
                 if raw is not None and len(raw) > 5:
                     prices_df = remap_columns(raw)
                     st.session_state["prices_df"] = prices_df
-                    st.session_state["last_period"] = period
-                    st.success(f"✅ Data loaded: {len(prices_df)} trading days | "
-                               f"{len(prices_df.columns)} stocks | "
-                               f"Latest: {prices_df.index[-1].date()}")
+                    st.success(
+                        f"✅ Data loaded: {len(prices_df)} trading days | "
+                        f"{len(prices_df.columns)} stocks | "
+                        f"Latest: {prices_df.index[-1].date()}"
+                    )
                 else:
-                    st.error("❌ Failed to fetch data. Please check your internet connection.")
+                    st.error("❌ Failed to fetch data. Check your internet connection.")
             except Exception as e:
                 st.error(f"❌ Data fetch error: {e}")
     else:
         prices_df = st.session_state.get("prices_df")
 
+# ── Splash when no data ───────────────────────────────────────────────────────
 if prices_df is None:
-    st.info(
-        "👆 **Click 'Fetch Live Data'** to download Nifty 50 stock prices from NSE via Yahoo Finance.\n\n"
-        "This app computes:\n"
-        "- **7 VaR Methods**: Historical, Parametric (Normal), Student-t, Cornish-Fisher, Monte Carlo, EWMA, GARCH(1,1)\n"
-        "- **CVaR / Expected Shortfall** for each method\n"
-        "- **Extended ES Metrics**: Spectral RM, Entropic VaR, Stressed ES, Range VaR\n"
-        "- **Portfolio Risk**: Component VaR, Marginal VaR, Incremental VaR, Diversification Benefit\n"
-        "- **Stress Testing**: Historical crisis scenarios (COVID-19, GFC 2008, IL&FS, etc.)\n"
-        "- **Backtesting**: Kupiec POF test"
+    st.html(
+        f'<div style="background:#112240;border:1px solid #1e3a5f;border-radius:12px;'
+        f'padding:36px 40px;text-align:center;margin:20px 0;{NO_SEL}">'
+        f'<div style="font-size:3rem;margin-bottom:12px">📊</div>'
+        f'<div style="font-family:{FH};color:#FFD700;-webkit-text-fill-color:#FFD700;'
+        f'font-size:1.6rem;font-weight:700;margin-bottom:10px">Ready to Analyse Risk</div>'
+        f'<div style="color:#ADD8E6;-webkit-text-fill-color:#ADD8E6;font-family:{FB};font-size:.95rem;margin-bottom:20px">'
+        f'Click <strong style="color:#FFD700;-webkit-text-fill-color:#FFD700">🔄 Fetch Live Data</strong> '
+        f'in the sidebar to load Nifty 50 stock prices from NSE via Yahoo Finance.</div>'
+        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:700px;margin:0 auto">'
+        + "".join(
+            f'<div style="background:rgba(0,51,102,0.3);border:1px solid #1e3a5f;border-radius:8px;'
+            f'padding:14px 10px;{NO_SEL}">'
+            f'<div style="font-size:1.5rem;margin-bottom:6px">{icon}</div>'
+            f'<div style="color:#FFD700;-webkit-text-fill-color:#FFD700;font-family:{FB};'
+            f'font-size:.82rem;font-weight:600">{label}</div>'
+            f'<div style="color:#8892b0;-webkit-text-fill-color:#8892b0;font-family:{FB};'
+            f'font-size:.75rem;margin-top:3px">{desc}</div></div>'
+            for icon, label, desc in [
+                ("🎯","7 VaR Methods","Hist · Normal · t · CF · MC · EWMA · GARCH"),
+                ("💼","Portfolio Risk","Component, Marginal & Incremental VaR"),
+                ("🔥","Stress Testing","COVID-19, GFC 2008 & 6 more scenarios"),
+                ("📚","Methodology","Basel III / FRTB formula reference"),
+            ]
+        )
+        + f'</div></div>'
     )
     footer()
     st.stop()
@@ -234,25 +218,25 @@ from tab_portfolio   import tab_portfolio
 from tab_stress      import tab_stress
 from tab_methodology import tab_methodology
 
-tab1, tab2, tab3, tab4 = st.tabs([
+TABS = st.tabs([
     "📈 Single Stock VaR",
     "💼 Portfolio VaR",
     "🔥 Stress Testing",
     "📚 Methodology",
 ])
 
-with tab1:
+with TABS[0]:
     tab_single(
-        prices_df   = prices_df,
-        ticker      = single_ticker,
-        conf_level  = conf_level,
-        horizon     = horizon,
-        n_sims      = n_sims,
-        invest      = invest,
-        ret_method  = ret_method,
+        prices_df  = prices_df,
+        ticker     = single_ticker,
+        conf_level = conf_level,
+        horizon    = horizon,
+        n_sims     = n_sims,
+        invest     = invest,
+        ret_method = ret_method,
     )
 
-with tab2:
+with TABS[1]:
     tab_portfolio(
         prices_df        = prices_df,
         selected_tickers = portfolio_tickers,
@@ -264,7 +248,7 @@ with tab2:
         ret_method       = ret_method,
     )
 
-with tab3:
+with TABS[2]:
     tab_stress(
         prices_df        = prices_df,
         selected_tickers = portfolio_tickers if portfolio_tickers else [single_ticker],
@@ -272,7 +256,7 @@ with tab3:
         ret_method       = ret_method,
     )
 
-with tab4:
+with TABS[3]:
     tab_methodology()
 
 footer()
